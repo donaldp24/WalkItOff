@@ -1,0 +1,29 @@
+//
+//  Prefix header
+//
+//  The contents of this file are implicitly included at the beginning of every source file.
+//
+
+#import <Availability.h>
+
+#ifndef __IPHONE_5_0
+#warning "This project uses features only available in iOS SDK 5.0 and later."
+#endif
+
+#ifdef __OBJC__
+    #import <UIKit/UIKit.h>
+    #import <Foundation/Foundation.h>
+#endif
+
+#import <QuartzCore/QuartzCore.h>
+#import <CoreData/CoreData.h>
+
+//define this constant if you want to use Masonry without the 'mas_' prefix
+#define NLSystemVersionGreaterOrEqualThan(version) ([[[UIDevice currentDevice] systemVersion] floatValue] >= version)
+#define IOS7_OR_LATER NLSystemVersionGreaterOrEqualThan(7.0)
+
+#import "Masonry.h"
+
+#import "Config.h"
+
+#import <FacebookSDK/FacebookSDK.h>
