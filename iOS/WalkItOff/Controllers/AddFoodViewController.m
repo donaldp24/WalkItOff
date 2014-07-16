@@ -8,10 +8,17 @@
 
 #import "AddFoodViewController.h"
 #import "UIManager.h"
+#import "Model.h"
+#import "AutoMessageBox.h"
+#import "SVProgressHUD+walkitoff.h"
 
 @interface AddFoodViewController () {
     UIBarButtonItem *_backButton;
+    UIResponder *currentResponder;
 }
+
+@property (nonatomic, strong) IBOutlet UITextField *txtName;
+@property (nonatomic, strong) IBOutlet UITextField *txtCalories;
 
 @end
 
@@ -38,6 +45,9 @@
     
     _backButton = [[UIBarButtonItem alloc] initWithImage:[UIImage imageNamed:@"backicon"] style:UIBarButtonItemStylePlain target:self action:@selector(onBack:)];
     self.navigationItem.leftBarButtonItem = _backButton;
+    
+    UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(backgroundTap:)];
+    [self.view addGestureRecognizer:tap];
 
 }
 
@@ -58,9 +68,72 @@
 }
 */
 
+#pragma mark - Actions
+- (IBAction)onAdd:(id)sender
+{
+    if (currentResponder)
+        [currentResponder resignFirstResponder];
+    // add food to custom food
+    if (self.txtName.text == nil || self.txtName.text.length <= 0)
+    {
+        // alert
+        [self showAlertWithMessage:@"Please input name of food/meal"];
+        return;
+    }
+    
+    if (self.txtCalories.text == nil || self.txtCalories.text.length == 0)
+    {
+        [self showAlertWithMessage:@"Please input calories of food/meal"];
+        return;
+    }
+    SHOW_PROGRESS(@"Please Wait");
+    // save custom food/meal to db
+    [Food addCustomFoodWithLocal:[User currentUser].uid name:self.txtName.text calories:[self.txtCalories.text floatValue] success:^() {
+//        [[NSOperationQueue mainQueue] addOperationWithBlock:^() {
+//            [AutoMessageBox AutoMsgInView:self withText:@"Success" withSuccess:YES];
+//        }];
+        HIDE_PROGRESS_WITH_SUCCESS(@"Success");
+    }failure:^(NSString *msg) {
+//        [[NSOperationQueue mainQueue] addOperationWithBlock:^() {
+//            [AutoMessageBox AutoMsgInView:self withText:@"Failure" withSuccess:NO];
+//        }];
+        HIDE_PROGRESS_WITH_FAILURE(@"Failure");
+    }];
+    
+}
+
 - (void)onBack:(id)sender
 {
     [self.navigationController popViewControllerAnimated:YES];
+}
+
+- (void)showAlertWithMessage:(NSString *)msg
+{
+    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"" message:msg delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil];
+    [alert show];
+}
+
+#pragma mark -
+#pragma mark UITextFieldDelegate Methods
+
+-(BOOL)textFieldShouldReturn:(UITextField *)textField {
+	[textField resignFirstResponder];
+	return YES;
+}
+
+- (void)textFieldDidBeginEditing:(UITextField *)textField {
+    currentResponder = textField;
+}
+
+- (void)textFieldDidEndEditing:(UITextField *)textField {
+    currentResponder = nil;
+}
+
+# pragma mark Gesture selector
+- (void)backgroundTap:(UITapGestureRecognizer *)backgroundTap {
+    if(currentResponder){
+        [currentResponder resignFirstResponder];
+    }
 }
 
 @end

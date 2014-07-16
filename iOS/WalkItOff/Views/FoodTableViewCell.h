@@ -9,11 +9,14 @@
 #import <UIKit/UIKit.h>
 #import "Food.h"
 
+@protocol FoodsViewCellsDelegate;
+
 @interface FoodTableViewCell : UITableViewCell
 
 @property (nonatomic, strong) Food *food;
+@property (nonatomic, strong) id<FoodsViewCellsDelegate> delegate;
 
-
+- (CGFloat)heightForFood:(Food *)food;
 - (void)bind:(Food *)food;
 
 @end

@@ -8,9 +8,21 @@
 
 #import <UIKit/UIKit.h>
 
-@interface AppDelegate : UIResponder <UIApplicationDelegate, UITabBarControllerDelegate>
+#import "Pedometer.h"
+
+@protocol PedometerViewerDelegate <NSObject>
+
+@required
+- (void)updateNumberOfSteps:(NSInteger)numberOfSteps;
+- (void)consumedCurrentFoods:(NSInteger)stepsTaken withDate:(NSDate *)date;
+
+@end
+
+@interface AppDelegate : UIResponder <UIApplicationDelegate, UITabBarControllerDelegate, PedometerDelegate>
 
 @property (strong, nonatomic) UIWindow *window;
 @property (strong, nonatomic) UITabBarController *tabBarController;
+@property (strong, nonatomic) Pedometer *pedometer;
+@property (strong, nonatomic) id<PedometerViewerDelegate> pedometerViewerDelegate;
 
 @end

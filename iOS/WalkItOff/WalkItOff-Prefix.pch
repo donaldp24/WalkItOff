@@ -23,3 +23,7 @@
 #define IOS7_OR_LATER NLSystemVersionGreaterOrEqualThan(7.0)
 
 #import "Masonry.h"
+
+#import "Config.h"
+
+#import <FacebookSDK/FacebookSDK.h>

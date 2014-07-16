@@ -181,6 +181,8 @@
         [self setNeedsDisplay];
     }
     
+    if ([delegate respondsToSelector:@selector(calendarView:dateSelected:)]) [delegate calendarView:self dateSelected:self.selectedDate];
+    
 }
 
 -(void)selectPrevDate {
@@ -199,6 +201,8 @@
         self.selectedDate = nextDate;
         [self setNeedsDisplay];
     }
+    
+    if ([delegate respondsToSelector:@selector(calendarView:dateSelected:)]) [delegate calendarView:self dateSelected:self.selectedDate];
 }
 
 -(void)showPreviousMonth {

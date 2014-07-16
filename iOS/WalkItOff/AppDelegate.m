@@ -7,6 +7,12 @@
 //
 
 #import "AppDelegate.h"
+#import "CommonMethods.h"
+#import "AppContext.h"
+#import "NSDate+walkitoff.h"
+#import "Model.h"
+#import "Formulas+walkitoff.h"
+#import "UserContext.h"
 
 @implementation AppDelegate
 
@@ -26,7 +32,20 @@
     // Set delegate of the tabBarController to handle the UITabBarControllerDelegate calls
     //self.tabBarController.delegate = self;
     
+    // set pedometer
+    Pedometer *defaultPedometer = [Pedometer defaultPedometer];
+    self.pedometer = defaultPedometer;
+    self.pedometer.delegate = self;
     
+    // have to start when open main view controller [loginviewcontroller gotoMain] functions,
+    // so this is commented
+//    AppContext *context = [AppContext sharedContext];
+//    if (context.pedometerStarted)
+//    {
+//        [self.pedometer start];
+//    }
+    
+  
     return YES;
 }
 							
@@ -50,11 +69,43 @@
 - (void)applicationDidBecomeActive:(UIApplication *)application
 {
     // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
+    
+    
+    // Handle the user leaving the app while the Facebook login dialog is being shown
+    // For example: when the user presses the iOS "home" button while the login dialog is active
+    [FBAppCall handleDidBecomeActive];
+    
+    
+    UserContext *userContext = [UserContext sharedContext];
+
+    if (userContext.isLoggedIn == YES)
+    {
+        AppContext *context = [AppContext sharedContext];
+        
+        [self checkStepsAndSave:[NSDate date]];
+        
+        // sent it to delegate
+        if (self.pedometerViewerDelegate)
+        {
+            [self.pedometerViewerDelegate updateNumberOfSteps:context.numberOfTodaySteps];
+        }
+    }
+    
 }
 
 - (void)applicationWillTerminate:(UIApplication *)application
 {
     // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
+}
+
+// During the Facebook login flow, your app passes control to the Facebook iOS app or Facebook in a mobile browser.
+// After authentication, your app will be called back with the session information.
+- (BOOL)application:(UIApplication *)application
+            openURL:(NSURL *)url
+  sourceApplication:(NSString *)sourceApplication
+         annotation:(id)annotation
+{
+    return [FBAppCall handleOpenURL:url sourceApplication:sourceApplication];
 }
 
 
@@ -73,5 +124,139 @@
     }
     */
 }
+
+#pragma mark - Pedometer delegate
+- (void)updateStepCounter:(NSInteger)numberOfSteps timestamp:(NSDate *)timestamp
+{
+    AppContext *context = [AppContext sharedContext];
+    
+    // process steps taken today
+    [self checkStepsAndSave:timestamp];
+    
+    // add step count
+    context.numberOfTodaySteps++;
+    context.lastTimestamp = timestamp;
+    
+    // add total steps taken
+    context.stepsTaken++;
+    
+    [context save];
+    
+    // sent it to delegate
+    if (self.pedometerViewerDelegate)
+    {
+        [self.pedometerViewerDelegate updateNumberOfSteps:context.stepsTaken];
+    }
+
+    
+    // check all calories consumed
+    
+    // total calories
+    CGFloat totalCalories = 0;
+    for (Food *food in [User currentUser].currentFoods) {
+        totalCalories += food.calories;
+    }
+    
+    // check all calories consumed
+    if (totalCalories > 0)
+    {
+        CGFloat userCaloriesBurnedPerStep = [Formulas userCaloriesBurnedPerStep:[Formulas userCaloriesBurnedPerMile:[Formulas weightInLbsWithKg:[User currentUser].weight]] strideLengthInMiles:[Formulas userStrideLengthInMiles:[User currentUser].height]];
+        CGFloat caloriesBurned = context.stepsTaken * userCaloriesBurnedPerStep;
+        if (caloriesBurned >= totalCalories)
+        {
+            // mark current foods consumed
+#ifdef _USE_REMOTE
+            [Food consumedFoods:[User currentUser].uid arrayData:[User currentUser].currentFoods success:^()
+             {
+                 int stepsTaken = (int)context.stepsTaken;
+                 context.resetDate = [NSDate date];
+                 context.stepsTaken = 0;
+                 
+                 [context save];
+                 
+                 [[NSOperationQueue mainQueue] addOperationWithBlock:^() {
+                     [[User currentUser].currentFoods removeAllObjects];
+                     if (self.pedometerViewerDelegate)
+                         [self.pedometerViewerDelegate consumedCurrentFoods:stepsTaken withDate:[NSDate date]];
+                 }];
+                 
+             } failure:^(NSString *msg) {
+                 //
+             }];
+#else
+            [Food consumedFoodsWithLocal:[User currentUser].uid arrayData:[User currentUser].currentFoods success:^() {
+                
+                int stepsTaken = (int)context.stepsTaken;
+                context.resetDate = [NSDate date];
+                context.stepsTaken = 0;
+                
+                [context save];
+                
+                [[NSOperationQueue mainQueue] addOperationWithBlock:^() {
+                    [[User currentUser].currentFoods removeAllObjects];
+                    if (self.pedometerViewerDelegate)
+                        [self.pedometerViewerDelegate consumedCurrentFoods:stepsTaken withDate:[NSDate date]];
+                }];
+                
+            } failure:^(NSString *msg) {
+                //
+            }];
+#endif
+        }
+    }
+}
+
+- (void)started
+{
+    AppContext *context = [AppContext sharedContext];
+    context.pedometerStarted = YES;
+    [context save];
+}
+
+- (void)stopped
+{
+    AppContext *context = [AppContext sharedContext];
+    context.pedometerStarted = NO;
+    [context save];
+}
+
+- (void)checkStepsAndSave:(NSDate *)timestamp
+{
+    AppContext *context = [AppContext sharedContext];
+    if ([CommonMethods compareOnlyDate:timestamp date2:context.lastTimestamp] != NSOrderedSame)
+    {
+        // calc params and save
+        // db->save(strDate, context.numberOfTodaySteps);
+        Consumed *consumed = [[Consumed alloc] init];
+        consumed.date = context.lastTimestamp;
+        consumed.stepsTaken = (int)context.numberOfTodaySteps;
+        
+        consumed.caloriesConsumed = [Formulas userCaloriesBurnedPerStep:[Formulas userCaloriesBurnedPerMile:[Formulas weightInLbsWithKg:[User currentUser].weight]] strideLengthInMiles:[Formulas userStrideLengthInMiles:[User currentUser].height]] * context.numberOfTodaySteps;
+        
+        consumed.milesWalked = context.numberOfTodaySteps * [Formulas userStrideLengthInMiles:[User currentUser].height];
+        
+#ifdef _USE_REMOTE
+        [Consumed addConsumed:[User currentUser].uid withConsumed:consumed success:^(){
+            //
+        } failure:^(NSString *msg) {
+            // add consumed to local database and sync when online
+            // local_db->save();
+        }];
+#else
+        [Consumed addConsumedWithLocal:[User currentUser].uid withConsumed:consumed success:^(){
+            //
+        } failure:^(NSString *msg) {
+            // add consumed to local database and sync when online
+            // local_db->save();
+        }];
+#endif
+        
+        context.lastTimestamp = timestamp;
+        context.numberOfTodaySteps = 0;
+        
+        [context save];
+    }
+}
+
 
 @end

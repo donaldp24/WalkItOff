@@ -7,7 +7,10 @@
 //
 
 #import <UIKit/UIKit.h>
+#import "Model.h"
 
 @interface FoodInfoViewController : UIViewController
+
+@property (nonatomic, strong) Food *food;
 
 @end

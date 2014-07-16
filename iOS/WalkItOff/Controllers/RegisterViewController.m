@@ -8,6 +8,24 @@
 
 #import "RegisterViewController.h"
 #import "UIManager.h"
+#import "NSString+Knotable.h"
+#import "Model.h"
+#import "SVProgressHUD+walkitoff.h"
+
+typedef enum {
+    INPUT_OK,
+    INPUT_NAME,
+    INPUT_AGE_EMPTY,
+    INPUT_GENDER,
+    INPUT_WEIGHT_EMPTY,
+    INPUT_HEIGHT_EMPTY,
+    INPUT_EMAIL_EMPTY,
+    INPUT_EMAIL_INCORRECT,
+    INPUT_PWD,
+    INPUT_PWDCONFIRM,
+    INPUT_TYPE,
+    INPUT_TOKEN
+}INPUT_INVALID;
 
 @interface RegisterViewController () {
     UIBarButtonItem *_backButton;
@@ -20,6 +38,14 @@
 @property (nonatomic, strong) IBOutlet UIImageView *ivFemale;
 @property (nonatomic, strong) IBOutlet UIButton *btnMale;
 @property (nonatomic, strong) IBOutlet UIButton *btnFemale;
+
+@property (nonatomic, strong) IBOutlet UITextField *txtName;
+@property (nonatomic, strong) IBOutlet UITextField *txtAge;
+@property (nonatomic, strong) IBOutlet UITextField *txtWeight;
+@property (nonatomic, strong) IBOutlet UITextField *txtHeight;
+@property (nonatomic, strong) IBOutlet UITextField *txtEmail;
+@property (nonatomic, strong) IBOutlet UITextField *txtPwd;
+@property (nonatomic, strong) IBOutlet UITextField *txtPwdConfirm;
 
 @end
 
@@ -114,10 +140,114 @@
     [[NSNotificationCenter defaultCenter] removeObserver:self name:UIKeyboardWillHideNotification object:nil];
 }
 
+#pragma mark - check validation
+- (int)checkValid
+{
+    NSString *name = [self.txtName.text trimmed];
+    NSString *strAge = [self.txtAge.text trimmed];
+    NSString *strWeight = [self.txtWeight.text trimmed];
+    NSString *strHeight = [self.txtWeight.text trimmed];
+    NSString *email = [self.txtEmail.text trimmed];
+    NSString *pwd = self.txtPwd.text;
+    NSString *pwdConfirm = self.txtPwdConfirm.text;
+    if (name.length == 0)
+        return INPUT_NAME;
+    if (strAge.length == 0)
+        return INPUT_AGE_EMPTY;
+    
+    if (strWeight.length == 0)
+        return INPUT_WEIGHT_EMPTY;
+    
+    if (strHeight.length == 0)
+        return INPUT_HEIGHT_EMPTY;
+    
+    if (email.length == 0)
+        return INPUT_EMAIL_EMPTY;
+    
+    NSArray *emailComponents = [email componentsSeparatedByString:@"@"];
+    if (emailComponents == nil || emailComponents.count < 2)
+        return INPUT_EMAIL_INCORRECT;
+    
+    if (pwd.length <= 0)
+        return INPUT_PWD;
+    
+    if (![pwd isEqualToString:pwdConfirm])
+        return INPUT_PWDCONFIRM;
+    return INPUT_OK;
+}
+
 #pragma mark - Actions
 - (IBAction)onCreateAccount:(id)sender
 {
-    [self.navigationController popViewControllerAnimated:YES];
+    // check validation
+    int ret = [self checkValid];
+    NSString *msg = @"";
+    switch (ret) {
+        case INPUT_NAME:
+            msg = @"Please enter your name";
+            break;
+            
+        case INPUT_AGE_EMPTY:
+            msg = @"Please enter your age";
+            break;
+            
+        case INPUT_WEIGHT_EMPTY:
+            msg = @"Pleaes enter your weight";
+            break;
+            
+        case INPUT_HEIGHT_EMPTY:
+            msg = @"Please enter your height";
+            break;
+            
+        case INPUT_EMAIL_EMPTY:
+            msg = @"Please enter your email address";
+            break;
+            
+        case INPUT_EMAIL_INCORRECT:
+            msg = @"That email address is not valid";
+            break;
+            
+        case INPUT_PWD:
+            msg = @"Please enter password";
+            break;
+            
+        case INPUT_PWDCONFIRM:
+            msg = @"Password and Confirm password is not equal";
+            break;
+            
+        default:
+            break;
+    }
+    
+    if (ret != INPUT_OK)
+    {
+        UIAlertView* alert = [[UIAlertView alloc] initWithTitle:@"Invalid" message:msg delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil];
+        [alert show];
+        return;
+    }
+    
+    User *user = [[User alloc] init];
+    user.name = [self.txtName.text trimmed];
+    user.age = [[self.txtAge.text trimmed] intValue];
+    user.gender = (self.btnMale.isSelected)?GenderMale:GenderFemale;
+    user.weight = [[self.txtWeight.text trimmed] floatValue];
+    user.height = [[self.txtHeight.text trimmed] floatValue];
+    user.email = [self.txtEmail.text trimmed];
+    user.pwd = self.txtPwd.text;
+    user.type = UserTypeNormal;
+    user.token = @"";
+    
+    SHOW_PROGRESS(@"Please wait")
+    
+    [User registerUser:user success:^(){
+        HIDE_PROGRESS_WITH_SUCCESS(@"Created successfully");
+        [self performSelector:@selector(onBack:) withObject:nil afterDelay:kSVProgressMsgDelay];
+        
+    }failure:^(NSString *msg) {
+        HIDE_PROGRESS_WITH_FAILURE(([NSString stringWithFormat:@"Create failed : %@", msg]));
+    }];
+    
+    //[self.navigationController popViewControllerAnimated:YES];
 }
 
 - (IBAction)onContinueWithoutLogin:(id)sender
@@ -146,6 +276,16 @@
     
     self.btnFemale.selected = YES;
     self.ivFemale.image = [UIImage imageNamed:@"selectedcircle"];
+}
+
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView
+{
+    return 1;
+}
+
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
+{
+    return 10;
 }
 
 #pragma mark -

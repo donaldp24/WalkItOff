@@ -7,6 +7,8 @@
 //
 
 #import "MainTabController.h"
+#import "Pedometer.h"
+#import "AppContext.h"
 
 
 #define TABINDEX_HOME       0
@@ -73,6 +75,11 @@ static MainTabController *_sharedTabController = nil;
     [self.btnWalking setImage:[UIImage imageNamed:@"stopworking"] forState:UIControlStateSelected];
     [self.btnWalking addTarget:self action:@selector(onWalk:) forControlEvents:UIControlEventTouchUpInside];
     [view addSubview:self.btnWalking];
+    
+    // set selected if pedometer started
+    AppContext *context = [AppContext sharedContext];
+    if (context.pedometerStarted)
+        [self.btnWalking setSelected:YES];
     
     // profile button
     UIImage *imgProfile = [UIImage imageNamed:@"databutton"];
@@ -147,6 +154,14 @@ static MainTabController *_sharedTabController = nil;
 - (void)onWalk:(id)sender
 {
     self.btnWalking.selected = !self.btnWalking.selected;
+    if (self.btnWalking.selected)
+    {
+        [[Pedometer defaultPedometer] start];
+    }
+    else
+    {
+        [[Pedometer defaultPedometer] stop];
+    }
 }
 
 - (void)onProfile:(id)sender

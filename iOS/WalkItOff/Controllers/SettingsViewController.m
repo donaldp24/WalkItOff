@@ -8,6 +8,9 @@
 
 #import "SettingsViewController.h"
 #import "UIManager.h"
+#import "AppDelegate.h"
+#import "AppContext.h"
+#import "UserContext.h"
 
 @interface SettingsViewController ()
 
@@ -65,16 +68,14 @@
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView
 {
-#warning Potentially incomplete method implementation.
     // Return the number of sections.
     return 1;
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
 {
-#warning Incomplete method implementation.
     // Return the number of rows in the section.
-    return 4;
+    return 5;
 }
 
 /*
@@ -136,5 +137,52 @@
     // Pass the selected object to the new view controller.
 }
 */
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    switch (indexPath.row) {
+        case 0:
+            [self performSegueWithIdentifier:@"toAccount" sender:self];
+            break;
+            
+        case 1:
+            [self performSegueWithIdentifier:@"toTwitter" sender:self];
+            break;
+            
+        case 2:
+            [self performSegueWithIdentifier:@"toFacebook" sender:self];
+            break;
+            
+        case 3:
+            [self performSegueWithIdentifier:@"toApplication" sender:self];
+            break;
+            
+        case 4:
+            [self logout];
+            break;
+            
+        default:
+            break;
+    }
+}
+
+- (void)logout
+{
+    // stop pedometer
+    AppContext *context = [AppContext sharedContext];
+    if (context.pedometerStarted)
+    {
+        AppDelegate *appDelegate = (AppDelegate *)[UIApplication sharedApplication].delegate;
+        [appDelegate.pedometer stop];
+    }
+    
+    [UserContext sharedContext].isLoggedIn = NO;
+    [UserContext clearDefaultLogin];
+    
+    if ([User currentUser].type == UserTypeFacebook)
+        [FBSession.activeSession closeAndClearTokenInformation];
+    
+    [self.tabBarController.navigationController popToRootViewControllerAnimated:YES];
+}
 
 @end

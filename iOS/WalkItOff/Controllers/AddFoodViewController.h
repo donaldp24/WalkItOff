@@ -8,6 +8,6 @@
 
 #import <UIKit/UIKit.h>
 
-@interface AddFoodViewController : UIViewController
+@interface AddFoodViewController : UIViewController <UITextFieldDelegate>
 
 @end

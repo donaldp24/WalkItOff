@@ -14,8 +14,11 @@
 #import "CustomSegmentedControl.h"
 #import "AddFoodViewController.h"
 #import "FoodInfoViewController.h"
+#import "AppContext.h"
+#import "AutoMessageBox.h"
 
 #import "Food.h"
+#import "SVProgressHUD+walkitoff.h"
 
 static NSString *FoodsCellIdentifier = @"FoodsCell";
 static NSString *CurrentCellIdentifier = @"CurrentCell";
@@ -36,9 +39,24 @@ static NSUInteger FAVORITES_SEGMENT_INDEX = 2;
     UIBarButtonItem *_backButton;
     UIResponder *currentResponder;
     
+    NSString *_keyword;
+    BOOL _pendingNormal;
+    BOOL _pendingSearching;
+    
+    BOOL _nextPageNormal;
+    BOOL _nextPageSearching;
+    
+    BOOL _searching;
+    
+    BOOL _hasNextNormal;
+    BOOL _hasNextSearching;
+    
     BOOL firstLoaded;
+    
+    CGFloat _totalCalories;
+    CGFloat _caloriesBurned;
 }
-
+@property (nonatomic, strong) IBOutlet UIImageView *imgView;
 @property (nonatomic, strong) IBOutlet UIScrollView *swipeView;
 
 @property (nonatomic, strong) IBOutlet UITableView *tblFoods;
@@ -53,10 +71,11 @@ static NSUInteger FAVORITES_SEGMENT_INDEX = 2;
 @property (nonatomic, strong) IBOutlet UILabel *lblCalories;
 
 @property (nonatomic, strong) NSMutableArray *foods;
-@property (nonatomic, strong) NSMutableArray *currentFoods;
-@property (nonatomic, strong) NSMutableArray *favoritesFoods;
 
 @property (nonatomic, strong) NSMutableArray *foodsSearchResults;
+
+@property (nonatomic, strong) IBOutlet UITextField *txtKeyword;
+@property (nonatomic, strong) IBOutlet UIButton *btnSearchCancel;
 
 
 @property (nonatomic, strong) CustomSegmentedControl* segmentedControl;
@@ -84,106 +103,6 @@ static NSUInteger FAVORITES_SEGMENT_INDEX = 2;
 - (void)initDisplayMode:(DisplayMode) mode
 {
     _displayMode = mode;
-}
-
-- (void)initTempData
-{
-    Food *food;
-    
-    food = [[Food alloc] init];
-    food.uid = 0;
-    food.name = @"Piza";
-    food.calories = 0.3;
-    
-    [self.foods addObject:food];
-    [self.currentFoods addObject:food];
-    [self.favoritesFoods addObject:food];
-    
-    food = [[Food alloc] init];
-    food.uid = 0;
-    food.name = @"Portion of Chips";
-    food.calories = 0.3;
-    
-    [self.foods addObject:food];
-    [self.currentFoods addObject:food];
-    [self.favoritesFoods addObject:food];
-    
-    food = [[Food alloc] init];
-    food.uid = 0;
-    food.name = @"Pint of beer";
-    food.calories = 0.3;
-    
-    [self.foods addObject:food];
-    [self.currentFoods addObject:food];
-    [self.favoritesFoods addObject:food];
-    food = [[Food alloc] init];
-    food.uid = 0;
-    food.name = @"Bowl of Cereal";
-    food.calories = 0.3;
-    
-    [self.foods addObject:food];
-    [self.currentFoods addObject:food];
-    [self.favoritesFoods addObject:food];
-    food = [[Food alloc] init];
-    food.uid = 0;
-    food.name = @"Chocolate Bar 100g";
-    food.calories = 0.3;
-    
-    [self.foods addObject:food];
-    [self.currentFoods addObject:food];
-    [self.favoritesFoods addObject:food];
-    food = [[Food alloc] init];
-    food.uid = 0;
-    food.name = @"Cheeseburger";
-    food.calories = 0.3;
-    
-    [self.foods addObject:food];
-    [self.currentFoods addObject:food];
-    [self.favoritesFoods addObject:food];
-    food = [[Food alloc] init];
-    food.uid = 0;
-    food.name = @"Can of Cola";
-    food.calories = 0.3;
-    
-    [self.foods addObject:food];
-    [self.currentFoods addObject:food];
-    [self.favoritesFoods addObject:food];
-    food = [[Food alloc] init];
-    food.uid = 0;
-    food.name = @"Chips";
-    food.calories = 0.3;
-    
-    [self.foods addObject:food];
-    [self.currentFoods addObject:food];
-    [self.favoritesFoods addObject:food];
-    food = [[Food alloc] init];
-    food.uid = 0;
-    food.name = @"Chocolate";
-    food.calories = 0.3;
-    
-    [self.foods addObject:food];
-    [self.currentFoods addObject:food];
-    [self.favoritesFoods addObject:food];
-    food = [[Food alloc] init];
-    food.uid = 0;
-    food.name = @"Biscuits";
-    food.calories = 0.3;
-    
-    [self.foods addObject:food];
-    [self.currentFoods addObject:food];
-    [self.favoritesFoods addObject:food];
-    food = [[Food alloc] init];
-    food.uid = 0;
-    food.name = @"Burger";
-    food.calories = 0.3;
-    
-    [self.foods addObject:food];
-    [self.currentFoods addObject:food];
-    [self.favoritesFoods addObject:food];
-    food = [[Food alloc] init];
-    food.uid = 0;
-    food.name = @"Beer";
-    food.calories = 0.3;
 }
 
 - (void)viewDidLoad
@@ -241,13 +160,11 @@ static NSUInteger FAVORITES_SEGMENT_INDEX = 2;
 
     // init models
     self.foods = [[NSMutableArray alloc] init];
-    self.currentFoods = [[NSMutableArray alloc] init];
-    self.favoritesFoods = [[NSMutableArray alloc] init];
     
     self.foodsSearchResults = [[NSMutableArray alloc] init];
 
     
-    [self initTempData];
+    //[self initTempData];
     /////
     
     self.navigationItem.hidesBackButton = YES;
@@ -268,32 +185,103 @@ static NSUInteger FAVORITES_SEGMENT_INDEX = 2;
     
     [self setupSegmentControl];
     
+  
+    // indicator view
+    CGRect rtFoods = self.tblFoods.frame;
+    UIView *v = [[UIView alloc] initWithFrame:CGRectMake(0, 0, rtFoods.size.width, 40)];
+    v.backgroundColor = [UIColor whiteColor];
+    UIActivityIndicatorView *indicator = [[UIActivityIndicatorView alloc] initWithFrame:CGRectMake(rtFoods.size.width / 2 - 30 / 2, 5, 30, 30)];
+    [v addSubview:indicator];
+    [indicator setColor:[UIColor blackColor]];
+    [indicator startAnimating];
     
-    // setup table view
-    //Hide empty separators
-    UIView *v = [[UIView alloc] initWithFrame:CGRectZero];
-    v.backgroundColor = [UIColor clearColor];
     self.tblFoods.tableFooterView = v;
-    self.tblCurrents.tableFooterView = v;
-    self.tblFavorites.tableFooterView = v;
+    self.tblFoods.tableFooterView.hidden = NO;
     
+    UIView *emptyView = [[UIView alloc] initWithFrame:CGRectZero];
+    self.tblCurrents.tableFooterView = emptyView;
+    self.tblFavorites.tableFooterView = emptyView;
     
-    self.refresh = [UIRefreshControl new];
-    self.refresh.tintColor = [UIColor whiteColor];
-    self.refresh.backgroundColor = [UIManager appBackgroundColor];
-    [self.refresh addTarget:self action:@selector(refreshPulled) forControlEvents:UIControlEventValueChanged];
-    
-    [self.tblFoods addSubview:self.refresh];
-    
-    self.tblCurrents.tableHeaderView = v;
-    self.tblFavorites.tableHeaderView = v;
     
     firstLoaded = YES;
     
-    
+    // setup gesture
     UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(backgroundTap:)];
     [self.view addGestureRecognizer:tap];
+    tap.delegate = self;
     
+    // get foods ------------------------------------------------
+    _keyword = @"";
+    _searching = NO;
+    _nextPageNormal = 0;
+    _nextPageSearching = 0;
+    _hasNextNormal = YES;
+    _hasNextSearching = YES;
+    
+
+    [Food getFoodsWithLocal:[User currentUser].uid keyword:@"" page:0 success:^(NSMutableArray *foods) {
+        self.foods = foods;
+    } failure:^(NSString *msg) {
+        //
+    }];
+    
+    self.tblFoods.tableFooterView.hidden = NO;
+    
+    _pendingNormal = YES;
+    [Food getFoodsWithRemote:0 keyword:_keyword page:_nextPageNormal success:^(NSMutableArray *arrayData, BOOL hasNext){
+        
+        [[NSOperationQueue mainQueue] addOperationWithBlock:^(){
+            
+            _pendingNormal = NO;
+            _hasNextNormal = hasNext;
+            
+            self.tblFoods.tableFooterView.hidden = YES;
+            
+            _nextPageNormal++;
+            [self.foods addObjectsFromArray:arrayData];
+            [self.tblFoods reloadData];
+            
+        }];
+        
+    } failure:^(NSString *msg) {
+        [[NSOperationQueue mainQueue] addOperationWithBlock:^() {
+            _pendingNormal = NO;
+            self.tblFoods.tableFooterView.hidden = YES;
+        }];
+    }];
+// 
+//    // get current foods ------------------------------------------------
+//    [Food getCurrentFoods:[User currentUser].uid isConsumed:NO success:^(NSMutableArray *arrayData)
+//     {
+//         [[NSOperationQueue mainQueue] addOperationWithBlock:^() {
+//             [self setDataForCurrentFoods:arrayData];
+//             [self.tblCurrents reloadData];
+//             [self refreshProgress];
+//             
+//             [self.tblCurrents.tableFooterView setHidden:YES];
+//         }];
+//     } failure:^(NSString *msg) {
+//         [[NSOperationQueue mainQueue] addOperationWithBlock:^() {
+//             [self.tblCurrents.tableFooterView setHidden:YES];
+//         }];
+//     }];
+//    
+//    // get favorite foods ------------------------------------------
+//    [Food getFavoritesFood:[User currentUser].uid success:^(NSMutableArray *arrayData)
+//     {
+//         [[NSOperationQueue mainQueue] addOperationWithBlock:^() {
+//             [self setDataForFavoritesFoods:arrayData];
+//             [self.tblFavorites reloadData];
+//             
+//             [self.tblFavorites.tableFooterView setHidden:YES];
+//         }];
+//     } failure:^(NSString *msg) {
+//         [[NSOperationQueue mainQueue] addOperationWithBlock:^() {
+//             [self.tblFavorites.tableFooterView setHidden:YES];
+//         }];
+//     }];
+    
+   
 }
 
 - (void)didReceiveMemoryWarning
@@ -325,6 +313,16 @@ static NSUInteger FAVORITES_SEGMENT_INDEX = 2;
         
         firstLoaded = NO;
     }
+    else
+        
+    {
+        [[self tableViewForMode:self.displayMode] reloadData];
+    }
+    
+    // set pedometerviewdelegate
+    AppDelegate *delegate = (AppDelegate *)[UIApplication sharedApplication].delegate;
+    delegate.pedometerViewerDelegate = self;
+    
 }
 
 
@@ -406,8 +404,30 @@ static NSUInteger FAVORITES_SEGMENT_INDEX = 2;
 #pragma mark - Page Scrolling
 - (void)scrollViewDidScroll:(UIScrollView *)scrollView
 {
-    if (scrollView != self.swipeView)
-        return;
+
+    if (scrollView == self.tblFoods)
+    {
+        if ((scrollView.contentOffset.y + scrollView.frame.size.height) >= scrollView.contentSize.height)
+        {
+            if (_searching)
+            {
+                if (_hasNextSearching)
+                    self.tblFoods.tableFooterView.hidden = NO;
+            }
+            else
+            {
+                if (_hasNextNormal)
+                    self.tblFoods.tableFooterView.hidden = NO;
+            }
+            // call method to add data to tableView
+        }
+        else
+        {
+            self.tblFoods.tableFooterView.hidden = YES;
+        }
+    }
+
+    
 }
 
 /**
@@ -427,18 +447,80 @@ static NSUInteger FAVORITES_SEGMENT_INDEX = 2;
  */
 - (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView
 {
-    if (scrollView != self.swipeView)
-        return;
+    if (scrollView == self.swipeView)
+    {
     
-    CGFloat width = scrollView.frame.size.width;
-    NSInteger page = (scrollView.contentOffset.x + (0.5f * width)) / width;
-    
-    
-    self.segmentedControl.selectedSegmentIndex = page;
-    [self.segmentedControl sendActionsForControlEvents:UIControlEventValueChanged];
-    
-    UITableView *tableView = [self tableViewForMode:self.displayMode];
-    [tableView flashScrollIndicators];
+        CGFloat width = scrollView.frame.size.width;
+        NSInteger page = (scrollView.contentOffset.x + (0.5f * width)) / width;
+        
+        
+        self.segmentedControl.selectedSegmentIndex = page;
+        [self.segmentedControl sendActionsForControlEvents:UIControlEventValueChanged];
+        
+        UITableView *tableView = [self tableViewForMode:self.displayMode];
+        [tableView flashScrollIndicators];
+    }
+    else if (scrollView == self.tblFoods)
+    {
+        if (self.tblFoods.tableFooterView.hidden == NO)
+        {
+            if (_searching)
+            {
+                if (!_pendingSearching)
+                {
+                    _pendingSearching = YES;
+                    
+                    [Food getFoodsWithRemote:0 keyword:_keyword page:_nextPageSearching success:^(NSMutableArray *arrayData, BOOL hasNext)
+                    {
+                        [[NSOperationQueue mainQueue] addOperationWithBlock:^(){
+                            _pendingSearching = NO;
+                            _hasNextSearching = hasNext;
+                            
+                            [self.foodsSearchResults addObjectsFromArray:arrayData];
+                            self.tblFoods.tableFooterView.hidden = YES;
+                            [self.tblFoods reloadData];
+                            
+                            _nextPageSearching++;
+                        }];
+                        
+                    }failure:^(NSString *msg) {
+                        [[NSOperationQueue mainQueue] addOperationWithBlock:^(){
+                            _pendingSearching = NO;
+                            self.tblFoods.tableFooterView.hidden = YES;
+                        }];
+                    }];
+                }
+            }
+            else
+            {
+                if (!_pendingNormal)
+                {
+                    _pendingNormal = YES;
+                    
+                    [Food getFoodsWithRemote:0 keyword:_keyword page:_nextPageNormal success:^(NSMutableArray *arrayData, BOOL hasNext)
+                     {
+                         [[NSOperationQueue mainQueue] addOperationWithBlock:^(){
+                             _pendingNormal = NO;
+                             _hasNextNormal = hasNext;
+                             
+                             [self.foods addObjectsFromArray:arrayData];
+                             self.tblFoods.tableFooterView.hidden = YES;
+                             [self.tblFoods reloadData];
+                             
+                             _nextPageNormal++;
+                         }];
+                         
+                     }failure:^(NSString *msg) {
+                         [[NSOperationQueue mainQueue] addOperationWithBlock:^(){
+                             _pendingNormal = NO;
+                             self.tblFoods.tableFooterView.hidden = YES;
+                         }];
+                     }];
+                }
+            }
+        }
+
+    }
 }
 
 #pragma mark - Segment control
@@ -525,6 +607,8 @@ static NSUInteger FAVORITES_SEGMENT_INDEX = 2;
             
 
             pageIndex = CURRENT_SEGMENT_INDEX;
+            
+            
             
             break;
         case DisplayModeFavorites:
@@ -615,9 +699,6 @@ static NSUInteger FAVORITES_SEGMENT_INDEX = 2;
             break;
         case DisplayModeFavorites:
             
-            
-            
-            
             return self.tblFavorites;
             
             break;
@@ -625,31 +706,29 @@ static NSUInteger FAVORITES_SEGMENT_INDEX = 2;
     return nil;
 }
 
-#pragma mark - Refresh
--(void)refreshPulled
+#pragma mark - progress view
+- (void)refreshProgress
 {
-    /*
-     if (self.displayMode == DisplayModeHot){
-     if ([DataManager sharedInstance].fetchedContacts) {
-     [[DataManager sharedInstance] fetchRemoteHotKnotes];
-     } else {
-     [self.refresh performSelector:@selector(endRefreshing) withObject:nil afterDelay:1];
-     }
-     } else if (self.displayMode == DisplayModePeople){
-     [[DataManager sharedInstance] fetchRemoteContacts];
-     }else{
-     [[DataManager sharedInstance] fetchRemoteTopics];
-     }*/
+    // get params from context
+    AppContext *context = [AppContext sharedContext];
+    _totalCalories = 0;
+    for (Food *food in [User currentUser].currentFoods) {
+        _totalCalories += food.calories;
+    }
+    //_totalCalories = context.totalCalories;
+    _caloriesBurned = context.totalCalories - context.caloriesToBurn;
+    if (_caloriesBurned < 0)
+        _caloriesBurned = 0;
     
-    [self.refresh endRefreshing];
-    [self.tblFoods reloadData];
-}
-
-
-#pragma mark - Bar Positioning
-- (UIBarPosition)positionForBar:(id <UIBarPositioning>)bar
-{
-    return UIBarPositionTopAttached;
+    CGRect frame = self.progress_back.frame;
+    if (_totalCalories == 0)
+        frame.size.width = 0;
+    else
+        frame.size.width = frame.size.width * _caloriesBurned / _totalCalories;
+    
+    self.progressbar.frame = frame;
+    
+    self.lblCalories.text = [NSString stringWithFormat:@"%d/%d Calories", (int)_caloriesBurned, (int)_totalCalories];
 }
 
 #pragma mark - Table view data source
@@ -661,11 +740,15 @@ static NSUInteger FAVORITES_SEGMENT_INDEX = 2;
         mode = _oldDisplayMode;
     }
     if (tableView == self.tblFoods)
+    {
+        if (_searching)
+            return self.foodsSearchResults;
         return self.foods;
+    }
     else if (tableView == self.tblCurrents)
-        return self.currentFoods;
+        return [self dataForCurrentFoods];
     else if (tableView == self.tblFavorites)
-        return self.favoritesFoods;
+        return [self dataForFavoritesFoods];
     //else if (tableView == _searchController.searchResultsTableView)
       //  return self.foodsSearchResults;
     return [[NSMutableArray alloc] init];
@@ -698,6 +781,59 @@ static NSUInteger FAVORITES_SEGMENT_INDEX = 2;
     return [self dataForTable:tableView].count + offset;
 }
 
+- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    DisplayMode mode = _displayMode;
+    if(self.transitioningData){
+        mode = _oldDisplayMode;
+    }
+    
+    CGFloat height = 0;
+    
+    switch (mode){
+        case DisplayModeFoods:
+            height = [self tableView:tableView foodsCellHeightForRowAtIndexPath:indexPath];
+            break;
+        case DisplayModeCurrent:
+            height = [self tableView:tableView currentCellHeightForRowAtIndexPath:indexPath];
+            break;
+        case DisplayModeFavorites:
+            height = [self tableView:tableView favoritesCellHeightForRowAtIndexPath:indexPath];
+            break;
+    }
+    return height;
+}
+
+static FoodTableViewCell *_prototypeFoodCell = nil;
+- (FoodTableViewCell *)prototypeFoodCell
+{
+    if (_prototypeFoodCell == nil)
+        _prototypeFoodCell = [self.tblFoods dequeueReusableCellWithIdentifier:@"cellidentifier"];
+    return _prototypeFoodCell;
+}
+
+
+- (CGFloat)tableView:(UITableView *)tableView foodsCellHeightForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    Food *food = (Food *)[[self dataForTable:tableView] objectAtIndex:indexPath.row];
+    float height = [[self prototypeFoodCell] heightForFood:food];
+    return height;
+}
+
+- (CGFloat)tableView:(UITableView *)tableView currentCellHeightForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    Food *food = (Food *)[[self dataForTable:tableView] objectAtIndex:indexPath.row];
+    float height = [[self prototypeFoodCell] heightForFood:food];
+    return height;
+}
+
+- (CGFloat)tableView:(UITableView *)tableView favoritesCellHeightForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    Food *food = (Food *)[[self dataForTable:tableView] objectAtIndex:indexPath.row];
+    float height = [[self prototypeFoodCell] heightForFood:food];
+    return height;
+}
+
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
     DisplayMode mode = _displayMode;
@@ -716,85 +852,38 @@ static NSUInteger FAVORITES_SEGMENT_INDEX = 2;
         case DisplayModeFavorites:
             cell = [self tableView:tableView favoritesCellForRowAtIndexPath:indexPath];
             break;
+            default:
+            cell = nil;
     }
     return cell;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView foodsCellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
-    
-    FoodTableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:FoodsCellIdentifier];
-    if (cell == nil)
-    {
-        cell = [[FoodTableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:FoodsCellIdentifier];
-    }
-    
-    Food *food = (Food *)[self dataForTable:tableView][indexPath.row];
+    FoodTableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"cellidentifier"];
+    Food *food = (Food *)[[self dataForTable:tableView] objectAtIndex:indexPath.row];
     [cell bind:food];
+    cell.delegate = self;
     return cell;
-    
-    /*
-     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:CurrentCellIdentifier];
-     if (cell == nil)
-     {
-     cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:CurrentCellIdentifier];
-     }
-     
-     Food *food = (Food *)[self dataForTable:tableView][indexPath.row];
-     cell.textLabel.text = food.name;
-     return cell;
-     */
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView currentCellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
-    
-    CurrentTableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:CurrentCellIdentifier];
-    if (cell == nil)
-    {
-        cell = [[CurrentTableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:CurrentCellIdentifier];
-    }
-    
-    Food *food = (Food *)[self dataForTable:tableView][indexPath.row];
+    CurrentTableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"cellidentifier"];
+    Food *food = (Food *)[[self dataForTable:tableView] objectAtIndex:indexPath.row];
+    CurrentFood *currentFood = (CurrentFood *)food;
     [cell bind:food];
+    cell.delegate = self;
     return cell;
-    
-    
-    /*
-     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:CurrentCellIdentifier];
-     if (cell == nil)
-     {
-     cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:CurrentCellIdentifier];
-     }
-     
-     Food *food = (Food *)[self dataForTable:tableView][indexPath.row];
-     cell.textLabel.text = food.name;
-     return cell;
-     */
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView favoritesCellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
-    FavoritesTableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:FavoritesCellIdentifier];
-    if (cell == nil)
-    {
-        cell = [[FavoritesTableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:FavoritesCellIdentifier];
-    }
-    
-    Food *food = (Food *)[self dataForTable:tableView][indexPath.row];
+    FavoritesTableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"cellidentifier"];
+    Food *food = (Food *)[[self dataForTable:tableView] objectAtIndex:indexPath.row];
     [cell bind:food];
+    cell.delegate = self;
     return cell;
-    /*
-     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:FavoritesCellIdentifier];
-     if (cell == nil)
-     {
-     cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:FavoritesCellIdentifier];
-     }
-     
-     Food *food = (Food *)[self dataForTable:tableView][indexPath.row];
-     cell.textLabel.text = food.name;
-     return cell;
-     */
 }
 
 #pragma mark - table view delegate
@@ -819,32 +908,32 @@ static NSUInteger FAVORITES_SEGMENT_INDEX = 2;
 
 - (void)openFoodRowInTableView:(UITableView *)tableView atIndexPath:(NSIndexPath *)indexPath
 {
-    FoodTableViewCell *cell = [tableView cellForRowAtIndexPath:indexPath];
-    Food *food = cell.food;
+    Food *food = [[self dataForTable:tableView] objectAtIndex:indexPath.row];
     
     FoodInfoViewController *vc = [self.storyboard instantiateViewControllerWithIdentifier:@"FoodInfoViewController"];
+    vc.food = food;
     [self.navigationController pushViewController:vc animated:YES];
 }
 
 - (void)openCurrentRowInTableView:(UITableView *)tableView atIndexPath:(NSIndexPath *)indexPath
 {
-    FoodTableViewCell *cell = [tableView cellForRowAtIndexPath:indexPath];
-    Food *food = cell.food;
+    Food *food = [[self dataForTable:tableView] objectAtIndex:indexPath.row];
     
     FoodInfoViewController *vc = [self.storyboard instantiateViewControllerWithIdentifier:@"FoodInfoViewController"];
+    vc.food = food;
     [self.navigationController pushViewController:vc animated:YES];
 }
 
 - (void)openFavoritesRowInTableView:(UITableView *)tableView atIndexPath:(NSIndexPath *)indexPath
 {
-    FoodTableViewCell *cell = [tableView cellForRowAtIndexPath:indexPath];
-    Food *food = cell.food;
+    Food *food = [[self dataForTable:tableView] objectAtIndex:indexPath.row];
     
     FoodInfoViewController *vc = [self.storyboard instantiateViewControllerWithIdentifier:@"FoodInfoViewController"];
+    vc.food = food;
     [self.navigationController pushViewController:vc animated:YES];
 }
 
-
+#if false
 - (UITableViewCellEditingStyle) tableView:(UITableView *)tableView editingStyleForRowAtIndexPath:(NSIndexPath *)indexPath
 {
     return UITableViewCellEditingStyleNone;
@@ -885,6 +974,67 @@ static NSUInteger FAVORITES_SEGMENT_INDEX = 2;
      return YES;
      */
     return YES;
+}
+#endif
+- (IBAction)keywordChanged:(id)sender
+{
+    if (self.txtKeyword.text.length <= 0)
+    {
+        if (_searching)
+        {
+            // cancel search
+            self.btnSearchCancel.hidden = YES;
+            
+            [self.foodsSearchResults removeAllObjects];
+            _searching = NO;
+            [self.tblFoods reloadData];
+        }
+    }
+    else
+    {
+        _searching = YES;
+        self.btnSearchCancel.hidden = NO;
+        _keyword = self.txtKeyword.text;
+        _nextPageSearching = 0;
+        _pendingSearching = YES;
+        __block NSMutableArray *arrayLocalFoods = nil;
+        [Food getFoodsWithLocal:[User currentUser].uid keyword:_keyword page:0 success:^(NSMutableArray *foods) {
+            arrayLocalFoods = foods;
+        } failure:^(NSString *msg) {
+            //
+        }];
+        
+        
+        [Food getFoodsWithRemote:0 keyword:_keyword page:0 success:^(NSMutableArray *arrayData, BOOL hasNext) {
+            [[NSOperationQueue mainQueue] addOperationWithBlock:^{
+                _nextPageSearching = 1;
+                self.foodsSearchResults = arrayLocalFoods;
+                [self.foodsSearchResults addObjectsFromArray:arrayData];
+                _hasNextSearching = hasNext;
+                
+                [self.tblFoods reloadData];
+                _pendingSearching = NO;
+            }];
+            
+        } failure:^(NSString *msg) {
+            [[NSOperationQueue mainQueue] addOperationWithBlock:^{
+                _nextPageSearching = 0;
+                [self.foodsSearchResults removeAllObjects];
+                [self.tblFoods reloadData];
+                _pendingSearching = NO;
+            }];
+            
+        }];
+    }
+}
+
+- (IBAction)onCancelSearching:(id)sender
+{
+    _keyword = @"";
+    self.txtKeyword.text = @"";
+    self.btnSearchCancel.hidden = YES;
+    _searching = NO;
+    [self.tblFoods reloadData];
 }
 
 #pragma mark - UISearchDisplayDelegate methods
@@ -1038,6 +1188,8 @@ static NSUInteger FAVORITES_SEGMENT_INDEX = 2;
 
 - (void)viewDidAppear:(BOOL)animated
 {
+    [super viewDidAppear:animated];
+    
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(keyboardShowing:)
                                                  name:UIKeyboardWillShowNotification
@@ -1046,11 +1198,20 @@ static NSUInteger FAVORITES_SEGMENT_INDEX = 2;
                                              selector:@selector(keyboardHiding:)
                                                  name:UIKeyboardWillHideNotification
                                                object:nil];
+    
+    
+    [self refreshProgress];
 }
 - (void)viewWillDisappear:(BOOL)animated
 {
+    [super viewWillDisappear:animated];
+    
     [[NSNotificationCenter defaultCenter] removeObserver:self name:UIKeyboardWillShowNotification object:nil];
     [[NSNotificationCenter defaultCenter] removeObserver:self name:UIKeyboardWillHideNotification object:nil];
+    
+    // set delegate to nil;
+    AppDelegate *delegate = (AppDelegate *)[UIApplication sharedApplication].delegate;
+    delegate.pedometerViewerDelegate = nil;
 }
 
 #pragma mark -
@@ -1103,5 +1264,166 @@ static NSUInteger FAVORITES_SEGMENT_INDEX = 2;
         [currentResponder resignFirstResponder];
     }
 }
+
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch
+{
+    if ([touch.view isDescendantOfView:[self tableViewForMode:self.displayMode]]) {
+        
+        // Don't let selections of auto-complete entries fire the
+        // gesture recognizer
+        if (currentResponder)
+            return YES;
+        return NO;
+    }
+    
+    return YES;
+}
+
+#pragma mark - Foods View Cell delegate
+
+// plus button on Food
+// add food direct to current foods/meals (total calories)
+- (void)onFoodCellBtnPlus:(Food *)food
+{
+    SHOW_PROGRESS(@"Please Wait");
+    [CurrentFood addFoodToCurrentWithLocal:[User currentUser].uid food:food success:^() {
+        [[NSOperationQueue mainQueue] addOperationWithBlock:^() {
+            //[AutoMessageBox AutoMsgInView:self withText:@"Success" withSuccess:YES];
+            HIDE_PROGRESS_WITH_SUCCESS(@"Success");
+            //[[self dataForCurrentFoods] addObject:food];
+            [self refreshCurrentFoods];
+            
+            [self.tblCurrents reloadData];
+            [self refreshProgress];
+            
+        }];
+    } failure:^(NSString *msg) {
+        [[NSOperationQueue mainQueue] addOperationWithBlock:^() {
+            // alert msg
+            //[AutoMessageBox AutoMsgInView:self withText:@"Failure" withSuccess:NO];
+            HIDE_PROGRESS_WITH_FAILURE(@"Failure");
+        }];
+    }];
+}
+
+// minus button on Current
+// remove food from current foods/meals
+- (void)onCurrentCellBtnMinus:(Food *)food
+{
+    CurrentFood *currentFood = (CurrentFood *)food;
+    SHOW_PROGRESS(@"Please Wait");
+    [CurrentFood removeFoodFromCurrentWithLocal:[User currentUser].uid currentFood:currentFood success:^() {
+        [[NSOperationQueue mainQueue] addOperationWithBlock:^() {
+            
+            //[AutoMessageBox AutoMsgInView:self withText:@"Success" withSuccess:YES];
+            HIDE_PROGRESS_WITH_SUCCESS(@"Success");
+            
+            //[[self dataForCurrentFoods] removeObject:food];
+            [self refreshCurrentFoods];
+            
+            [self.tblCurrents reloadData];
+            [self refreshProgress];
+            
+        }];
+    } failure:^(NSString *msg) {
+        [[NSOperationQueue mainQueue] addOperationWithBlock:^() {
+            // alert msg
+            //[AutoMessageBox AutoMsgInView:self withText:@"Failure" withSuccess:NO];
+            HIDE_PROGRESS_WITH_FAILURE(@"Failure");
+        }];
+    }];
+}
+
+// add food direct to current foods/meals (total calories)
+- (void)onFavoritesCellBtnPlus:(Food *)food
+{
+    SHOW_PROGRESS(@"Please Wait");
+    [CurrentFood addFoodToCurrentWithLocal:[User currentUser].uid food:food success:^() {
+        [[NSOperationQueue mainQueue] addOperationWithBlock:^() {
+            
+            //[AutoMessageBox AutoMsgInView:self withText:@"Success" withSuccess:YES];
+            HIDE_PROGRESS_WITH_SUCCESS(@"Success");
+            
+            //[[self dataForCurrentFoods] addObject:food];
+            [self refreshCurrentFoods];
+            
+            [self.tblCurrents reloadData];
+            [self refreshProgress];
+            
+        }];
+    } failure:^(NSString *msg) {
+        [[NSOperationQueue mainQueue] addOperationWithBlock:^() {
+            // alert msg
+            //[AutoMessageBox AutoMsgInView:self withText:@"Success" withSuccess:NO];
+            HIDE_PROGRESS_WITH_FAILURE(@"Failure");
+        }];
+    }];
+}
+
+// remove food from favorites foods/meals
+- (void)onFavoritesCellBtnMinus:(Food *)food
+{
+    SHOW_PROGRESS(@"Please Wait");
+    [Food removeFoodFromFavoritesWithLocal:[User currentUser].uid food:food success:^() {
+        [[NSOperationQueue mainQueue] addOperationWithBlock:^() {
+            
+            //[AutoMessageBox AutoMsgInView:self withText:@"Success" withSuccess:YES];
+            HIDE_PROGRESS_WITH_SUCCESS(@"Success");
+            
+            [[self dataForFavoritesFoods] removeObject:food];
+            
+            [self.tblFavorites reloadData];
+            
+        }];
+    } failure:^(NSString *msg) {
+        [[NSOperationQueue mainQueue] addOperationWithBlock:^() {
+            // alert msg
+            //[AutoMessageBox AutoMsgInView:self withText:@"Success" withSuccess:NO];
+            HIDE_PROGRESS_WITH_FAILURE(@"Failure");
+        }];
+    }];
+}
+
+#pragma mark data source
+- (NSMutableArray *)dataForCurrentFoods
+{
+    return [User currentUser].currentFoods;
+}
+
+- (NSMutableArray *)dataForFavoritesFoods
+{
+    return [User currentUser].favoritesFoods;
+}
+
+- (void)setDataForCurrentFoods:(NSMutableArray *)arrayData
+{
+    [User currentUser].currentFoods = [[NSMutableArray alloc] initWithArray:arrayData];
+}
+
+- (void)setDataForFavoritesFoods:(NSMutableArray *)arrayData
+{
+    [User currentUser].favoritesFoods = [[NSMutableArray alloc] initWithArray:arrayData];
+}
+
+- (void)refreshCurrentFoods
+{
+    [CurrentFood getCurrentFoodsWithLocal:[User currentUser].uid isConsumed:NO success:^(NSMutableArray *foods) {
+        [self setDataForCurrentFoods:foods];
+    } failure:^(NSString *msg) {
+        //
+    }];
+}
+
+#pragma mark PedometerViewDelegate
+- (void)updateNumberOfSteps:(NSInteger)numberOfSteps
+{
+    [self refreshProgress];
+}
+
+- (void)consumedCurrentFoods:(NSInteger)stepsTaken withDate:(NSDate *)date
+{
+    [self refreshProgress];
+}
+
 
 @end

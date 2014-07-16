@@ -7,7 +7,31 @@
 //
 
 #import <Foundation/Foundation.h>
+#import <CoreMotion/CoreMotion.h>
 
-@interface Pedometer : NSObject
+@protocol PedometerDelegate <NSObject>
+
+@required
+- (void) started;
+- (void) stopped;
+- (void) updateStepCounter:(NSInteger)numberOfSteps timestamp:(NSDate *)timestamp;
+
+@end
+
+@interface Pedometer : NSObject {
+    
+}
+
+@property (nonatomic, strong) id<PedometerDelegate> delegate;
+
++ (Pedometer *)defaultPedometer;
+
+- (BOOL)isStarted;
+
+- (void)start;
+- (void)stop;
+
++ (void) getNumberOfTodaySteps:(void(^)(NSInteger numberOfSteps))handler;
+
 
 @end

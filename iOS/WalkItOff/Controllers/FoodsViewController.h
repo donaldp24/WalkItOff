@@ -9,6 +9,8 @@
 #import <UIKit/UIKit.h>
 
 #import "SwipeTableView.h"
+#import "Model.h"
+#import "AppDelegate.h"
 
 typedef enum _DisplayMode
 {
@@ -17,14 +19,26 @@ typedef enum _DisplayMode
     DisplayModeFavorites
 } DisplayMode;
 
+@protocol FoodsViewCellsDelegate <NSObject>
+
+@optional
+- (void)onFoodCellBtnPlus:(Food *)food;
+- (void)onCurrentCellBtnMinus:(Food *)food;
+- (void)onFavoritesCellBtnPlus:(Food *)food;
+- (void)onFavoritesCellBtnMinus:(Food *)food;
+
+@end
+
 
 @interface FoodsViewController : UIViewController
     <
     UITableViewDataSource,
     UITableViewDelegate,
-    //UIGestureRecognizerDelegate
-    SwipeTableViewDelegate,
-    UITextFieldDelegate
+    UIGestureRecognizerDelegate,
+//    SwipeTableViewDelegate,
+    UITextFieldDelegate,
+    PedometerViewerDelegate,
+    FoodsViewCellsDelegate
     >
 
 
