@@ -1301,7 +1301,7 @@ static FoodTableViewCell *_prototypeFoodCell = nil;
         [[NSOperationQueue mainQueue] addOperationWithBlock:^() {
             // alert msg
             //[AutoMessageBox AutoMsgInView:self withText:@"Failure" withSuccess:NO];
-            HIDE_PROGRESS_WITH_FAILURE(@"Failure");
+            HIDE_PROGRESS_WITH_FAILURE(([NSString stringWithFormat:@"Failure : %@", msg]));
         }];
     }];
 }
@@ -1329,7 +1329,7 @@ static FoodTableViewCell *_prototypeFoodCell = nil;
         [[NSOperationQueue mainQueue] addOperationWithBlock:^() {
             // alert msg
             //[AutoMessageBox AutoMsgInView:self withText:@"Failure" withSuccess:NO];
-            HIDE_PROGRESS_WITH_FAILURE(@"Failure");
+            HIDE_PROGRESS_WITH_FAILURE(([NSString stringWithFormat:@"Failure : %@", msg]));
         }];
     }];
 }
@@ -1355,7 +1355,7 @@ static FoodTableViewCell *_prototypeFoodCell = nil;
         [[NSOperationQueue mainQueue] addOperationWithBlock:^() {
             // alert msg
             //[AutoMessageBox AutoMsgInView:self withText:@"Success" withSuccess:NO];
-            HIDE_PROGRESS_WITH_FAILURE(@"Failure");
+            HIDE_PROGRESS_WITH_FAILURE(([NSString stringWithFormat:@"Failure : %@", msg]));
         }];
     }];
 }
@@ -1379,7 +1379,7 @@ static FoodTableViewCell *_prototypeFoodCell = nil;
         [[NSOperationQueue mainQueue] addOperationWithBlock:^() {
             // alert msg
             //[AutoMessageBox AutoMsgInView:self withText:@"Success" withSuccess:NO];
-            HIDE_PROGRESS_WITH_FAILURE(@"Failure");
+            HIDE_PROGRESS_WITH_FAILURE(([NSString stringWithFormat:@"Failure : %@", msg]));
         }];
     }];
 }

@@ -13,6 +13,7 @@
 #import "Model.h"
 #import "Formulas+walkitoff.h"
 #import "UserContext.h"
+#import "AppSettings.h"
 
 @implementation AppDelegate
 
@@ -128,7 +129,16 @@
 #pragma mark - Pedometer delegate
 - (void)updateStepCounter:(NSInteger)numberOfSteps timestamp:(NSDate *)timestamp
 {
+
+    if ([UserContext sharedContext].isLoggedIn == NO)
+    {
+        NSLog(@"%@", @"error - Pedometer started without logging in");
+        return;
+    }
+    
     AppContext *context = [AppContext sharedContext];
+    
+
     
     // process steps taken today
     [self checkStepsAndSave:timestamp];
@@ -147,7 +157,37 @@
     {
         [self.pedometerViewerDelegate updateNumberOfSteps:context.stepsTaken];
     }
-
+    
+    
+    CGFloat userCaloriesBurnedPerStep = [Formulas userCaloriesBurnedPerStep:[Formulas userCaloriesBurnedPerMile:[Formulas weightInLbsWithKg:[User currentUser].weight]] strideLengthInMiles:[Formulas userStrideLengthInMiles:[User currentUser].height]];
+    CGFloat caloriesBurned = context.stepsTaken * userCaloriesBurnedPerStep;
+    
+    // post when 500 calories burned
+    if (caloriesBurned > context.nextPostCalories)
+    {
+        context.nextPostCalories = caloriesBurned + POST_CALORIES_MILESTONE;
+        
+        
+        if ([AppSettings sharedSettings].isPostPer500)
+        {
+            // post facebook message
+            NSDictionary *params = [NSDictionary dictionaryWithObjectsAndKeys:
+                                    [NSString stringWithFormat:@"You have consumed %d calories", (int)caloriesBurned], @"message",
+                                    nil
+                                    ];
+            /* make the API call */
+            [FBRequestConnection startWithGraphPath:@"/me/feed"
+                                         parameters:params
+                                         HTTPMethod:@"POST"
+                                  completionHandler:^(
+                                                      FBRequestConnection *connection,
+                                                      id result,
+                                                      NSError *error
+                                                      ) {
+                                      /* handle the result */
+                                  }];
+        }
+    }
     
     // check all calories consumed
     
@@ -160,10 +200,29 @@
     // check all calories consumed
     if (totalCalories > 0)
     {
-        CGFloat userCaloriesBurnedPerStep = [Formulas userCaloriesBurnedPerStep:[Formulas userCaloriesBurnedPerMile:[Formulas weightInLbsWithKg:[User currentUser].weight]] strideLengthInMiles:[Formulas userStrideLengthInMiles:[User currentUser].height]];
-        CGFloat caloriesBurned = context.stepsTaken * userCaloriesBurnedPerStep;
+        
         if (caloriesBurned >= totalCalories)
         {
+            if ([AppSettings sharedSettings].isPostWhenAllCalories)
+            {
+                // post facebook message
+                NSDictionary *params = [NSDictionary dictionaryWithObjectsAndKeys:
+                                        @"Congratulations! You have consumed all calories", @"message",
+                                        nil
+                                        ];
+                /* make the API call */
+                [FBRequestConnection startWithGraphPath:@"/me/feed"
+                                             parameters:params
+                                             HTTPMethod:@"POST"
+                                      completionHandler:^(
+                                                          FBRequestConnection *connection,
+                                                          id result,
+                                                          NSError *error
+                                                          ) {
+                                          /* handle the result */
+                                      }];
+            }
+            
             // mark current foods consumed
 #ifdef _USE_REMOTE
             [Food consumedFoods:[User currentUser].uid arrayData:[User currentUser].currentFoods success:^()

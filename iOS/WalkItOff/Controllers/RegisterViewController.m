@@ -179,6 +179,9 @@ typedef enum {
 #pragma mark - Actions
 - (IBAction)onCreateAccount:(id)sender
 {
+    if (currentResponder)
+        [currentResponder resignFirstResponder];
+    
     // check validation
     int ret = [self checkValid];
     NSString *msg = @"";

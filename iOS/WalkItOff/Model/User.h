@@ -48,5 +48,7 @@ typedef enum {
 
 + (void)updateUser:(User *)user success:(void(^)(User *user))success failure:(void(^)(NSString *msg))failure;
 
++ (void)resetPasswordWithEmail:(NSString *)email success:(void(^)())success failure:(void(^)(NSString *msg))failure;
+
 
 @end

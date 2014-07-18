@@ -23,18 +23,20 @@
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
 			<key>CFBundleURLName</key>
 			<string></string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>fb630943943680088</string>
+				<string>fb1469840833247782</string>
 			</array>
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>1.0</string>
 	<key>FacebookAppID</key>
-	<string>630943943680088</string>
+	<string>1469840833247782</string>
 	<key>FacebookDisplayName </key>
 	<string>WalkItOff</string>
 	<key>LSRequiresIPhoneOS</key>

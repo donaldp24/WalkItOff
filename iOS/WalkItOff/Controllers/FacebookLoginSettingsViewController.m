@@ -7,8 +7,16 @@
 //
 
 #import "FacebookLoginSettingsViewController.h"
+#import "UserContext.h"
+#import "SVProgressHUD+walkitoff.h"
+#import "UIManager.h"
 
-@interface FacebookLoginSettingsViewController ()
+@interface FacebookLoginSettingsViewController () {
+    UIBarButtonItem *_backButton;
+    UIResponder *currentResponder;
+}
+
+@property (nonatomic, strong) IBOutlet UIButton *btnLogin;
 
 @end
 
@@ -32,6 +40,38 @@
     
     // Uncomment the following line to display an Edit button in the navigation bar for this view controller.
     // self.navigationItem.rightBarButtonItem = self.editButtonItem;
+    
+    //Hide empty separators
+    UIView *v = [[UIView alloc] initWithFrame:CGRectZero];
+    v.backgroundColor = [UIColor clearColor];
+    self.tableView.tableFooterView = v;
+    
+    self.tableView.backgroundColor = [UIManager appBackgroundColor];
+    
+    // back button
+    
+    _backButton = [[UIBarButtonItem alloc] initWithImage:[UIImage imageNamed:@"backicon"] style:UIBarButtonItemStylePlain target:self action:@selector(onBack:)];
+    self.navigationItem.leftBarButtonItem = _backButton;
+    
+    // check facebook auth token
+    if (FBSession.activeSession.state == FBSessionStateOpen ||
+        FBSession.activeSession.state == FBSessionStateOpenTokenExtended)
+    {
+        // set login button to log out button
+        self.btnLogin.selected = YES;
+    }
+    else
+    {
+        // set login button to login button
+        self.btnLogin.selected = NO;
+    }
+    
+    // if current user is from facebook, disable login/logout button
+    if ([User currentUser].type == UserTypeFacebook)
+    {
+        self.btnLogin.enabled = NO;
+    }
+
 }
 
 - (void)didReceiveMemoryWarning
@@ -44,16 +84,14 @@
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView
 {
-#warning Potentially incomplete method implementation.
     // Return the number of sections.
-    return 0;
+    return 1;
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
 {
-#warning Incomplete method implementation.
     // Return the number of rows in the section.
-    return 0;
+    return 1;
 }
 
 /*
@@ -115,5 +153,94 @@
     // Pass the selected object to the new view controller.
 }
 */
+
+- (IBAction)onBack:(id)sender
+{
+    // get values from controls
+//    AppSettings *settings = [AppSettings sharedSettings];
+//    settings.twitterUser = self.txtUserName.text;
+//    settings.twitterPwd = self.txtPwd.text;
+//    [settings save];
+    
+    [self.navigationController popViewControllerAnimated:YES];
+}
+
+- (IBAction)onLogin:(id)sender
+{
+    if (self.btnLogin.selected == YES)
+    {
+        self.btnLogin.selected = NO;
+        [FBSession.activeSession closeAndClearTokenInformation];
+    }
+    else
+    {
+        [FBSession openActiveSessionWithReadPermissions:@[@"public_profile", @"email"]
+                                           allowLoginUI:YES
+                                      completionHandler:^(FBSession *session, FBSessionState state, NSError *error) {
+                                          // Handler for session state changes
+                                          // This method will be called EACH time the session state changes,
+                                          // also for intermediate states and NOT just when the session open
+                                          
+                                          if (!error && state == FBSessionStateOpen)
+                                          {
+                                              NSLog(@"Session opened");
+                                              [self.btnLogin setSelected:YES];
+                                              
+                                              [FBRequestConnection startWithGraphPath:@"/me/permissions"
+                                                                    completionHandler:^(FBRequestConnection *connection, id result, NSError *error) {
+                                                                        //__block NSString *alertText;
+                                                                        //__block NSString *alertTitle;
+                                                                        if (!error){
+                                                                            NSDictionary *permissions= [(NSArray *)[result data] objectAtIndex:0];
+                                                                            if (![permissions objectForKey:@"publish_actions"]){
+                                                                                // Publish permissions not found, ask for publish_actions
+                                                                                [self requestPublishPermissions];
+                                                                                
+                                                                            } else {
+                                                                                // Publish permissions found, publish the OG story
+                                                                                //[self publishStory];
+                                                                            }
+                                                                            
+                                                                        } else {
+                                                                            // There was an error, handle it
+                                                                            // See https://developers.facebook.com/docs/ios/errors/
+                                                                        }
+                                                                    }];
+                                              return;
+                                          }
+
+                                         
+                                      }];
+    }
+}
+
+- (void)requestPublishPermissions
+{
+    // Request publish_actions
+    [FBSession.activeSession requestNewPublishPermissions:[NSArray arrayWithObject:@"publish_actions"]
+                                          defaultAudience:FBSessionDefaultAudienceOnlyMe
+                                        completionHandler:^(FBSession *session, NSError *error) {
+                                            __block NSString *alertText;
+                                            __block NSString *alertTitle;
+                                            if (!error) {
+                                                if ([FBSession.activeSession.permissions
+                                                     indexOfObject:@"publish_actions"] == NSNotFound){
+                                                    // Permission not granted, tell the user we will not publish
+                                                    alertTitle = @"Permission not granted";
+                                                    alertText = @"Your action will not be published to Facebook.";
+                                                    //[[[UIAlertView alloc] initWithTitle:alertTitle                                                                                 message:alertText                                                                                delegate:self                                                                       cancelButtonTitle:@"OK!"                                                                       otherButtonTitles:nil] show];
+                                                    NSLog(@"%@", alertText);
+                                                } else {
+                                                    // Permission granted, publish the OG story
+                                                    //[self publishStory];
+                                                }
+                                                
+                                            } else {
+                                                // There was an error, handle it
+                                                // See https://developers.facebook.com/docs/ios/errors/
+                                            }
+                                        }];
+    
+}
 
 @end

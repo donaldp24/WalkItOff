@@ -251,6 +251,50 @@ enum  {
                 }
             }
         }
+        else if (user.type == UserTypeNoneAuth)
+        {
+            if ([UserContext getDefaultLogin])
+            {
+                [User setCurrentUser:user];
+                [self gotoMain];
+            }
+        }
+        
+        // request public permission (public actions)
+        if (user.type != UserTypeFacebook)
+        {
+            // facebook auth open
+            if (FBSession.activeSession.state == FBSessionStateCreatedTokenLoaded) {
+                [FBSession openActiveSessionWithReadPermissions:@[@"public_profile", @"email"]
+                                                   allowLoginUI:NO
+                                              completionHandler:^(FBSession *session, FBSessionState state, NSError *error) {
+                                                  
+                                                  // request public_actions permission
+                                                  // Check for publish permissions
+                                                  [FBRequestConnection startWithGraphPath:@"/me/permissions"
+                                                                        completionHandler:^(FBRequestConnection *connection, id result, NSError *error) {
+                                                                            //__block NSString *alertText;
+                                                                            //__block NSString *alertTitle;
+                                                                            if (!error){
+                                                                                NSDictionary *permissions= [(NSArray *)[result data] objectAtIndex:0];
+                                                                                if (![permissions objectForKey:@"publish_actions"]){
+                                                                                    // Publish permissions not found, ask for publish_actions
+                                                                                    [self requestPublishPermissions];
+                                                                                    
+                                                                                } else {
+                                                                                    // Publish permissions found, publish the OG story
+                                                                                    //[self publishStory];
+                                                                                }
+                                                                                
+                                                                            } else {
+                                                                                // There was an error, handle it
+                                                                                // See https://developers.facebook.com/docs/ios/errors/
+                                                                            }
+                                                                        }];
+
+                                              }];
+            }
+        }
     }
 }
 
@@ -588,7 +632,12 @@ enum  {
         [self showAlertMessage:nInput];
     } else {
         
-        //
+        SHOW_PROGRESS(@"Please Wait");
+        [User resetPasswordWithEmail:self.emailTextField.text success:^() {
+            HIDE_PROGRESS_WITH_SUCCESS(@"Sent a mail");
+        } failure:^(NSString *msg) {
+            HIDE_PROGRESS_WITH_FAILURE(([NSString stringWithFormat:@"Failure : %@", msg]));
+        }];
         
     }
     
@@ -624,6 +673,8 @@ enum  {
 
 #pragma mark sign up
 - (IBAction)enterSignup:(id)sender {
+    if (currentResponder)
+        [currentResponder resignFirstResponder];
     [self performSegueWithIdentifier:@"gotoRegister" sender:self];
 }
 
@@ -648,6 +699,7 @@ enum  {
     }
     
     [User setCurrentUser:user];
+    
     
     NSLog(@"onContinueWithoutLogin...");
     [self gotoMainWithoutLogin];
@@ -683,7 +735,7 @@ enum  {
 {
 //    return;
     
-    //SHOW_PROGRESS(@"Please Wait");
+    SHOW_PROGRESS(@"Please Wait");
     // If the session was opened successfully
     if (!error && state == FBSessionStateOpen)
     {
@@ -705,11 +757,34 @@ enum  {
                     [UserContext saveUser:user];
                     
                     [User setCurrentUser:user];
-                    
-                    [self gotoMain];
+                    [self performSelectorOnMainThread:@selector(gotoMain) withObject:nil waitUntilDone:NO];
+                    //[self gotoMain];
                 } failure:^(NSString *msg) {
-                    HIDE_PROGRESS_WITH_FAILURE(@"Login failed.");
+                    HIDE_PROGRESS_WITH_FAILURE(([NSString stringWithFormat:@"Login failed : %@", msg]));
                 }];}];
+                
+                // request public_actions permission
+                // Check for publish permissions
+                [FBRequestConnection startWithGraphPath:@"/me/permissions"
+                                      completionHandler:^(FBRequestConnection *connection, id result, NSError *error) {
+                                          //__block NSString *alertText;
+                                          //__block NSString *alertTitle;
+                                          if (!error){
+                                              NSDictionary *permissions= [(NSArray *)[result data] objectAtIndex:0];
+                                              if (![permissions objectForKey:@"publish_actions"]){
+                                                  // Publish permissions not found, ask for publish_actions
+                                                  [self requestPublishPermissions];
+                                                  
+                                              } else {
+                                                  // Publish permissions found, publish the OG story
+                                                  //[self publishStory];
+                                              }
+                                              
+                                          } else {
+                                              // There was an error, handle it
+                                              // See https://developers.facebook.com/docs/ios/errors/
+                                          }
+                                      }];
                 
             }
             else
@@ -717,7 +792,6 @@ enum  {
                 NSLog(@"fatching information failed : error = %@", [error localizedDescription]);
                 HIDE_PROGRESS_WITH_FAILURE(@"Getting user info failed.");
             }
-
           
         }];
 
@@ -809,6 +883,35 @@ enum  {
     }
     
     return user;
+}
+
+- (void)requestPublishPermissions
+{
+    // Request publish_actions
+    [FBSession.activeSession requestNewPublishPermissions:[NSArray arrayWithObject:@"publish_actions"]
+                                          defaultAudience:FBSessionDefaultAudienceOnlyMe
+                                        completionHandler:^(FBSession *session, NSError *error) {
+                                            __block NSString *alertText;
+                                            __block NSString *alertTitle;
+                                            if (!error) {
+                                                if ([FBSession.activeSession.permissions
+                                                     indexOfObject:@"publish_actions"] == NSNotFound){
+                                                    // Permission not granted, tell the user we will not publish
+                                                    alertTitle = @"Permission not granted";
+                                                    alertText = @"Your action will not be published to Facebook.";
+                                                    //[[[UIAlertView alloc] initWithTitle:alertTitle                                                                                 message:alertText                                                                                delegate:self                                                                       cancelButtonTitle:@"OK!"                                                                       otherButtonTitles:nil] show];
+                                                    NSLog(@"%@", alertText);
+                                                } else {
+                                                    // Permission granted, publish the OG story
+                                                    //[self publishStory];
+                                                }
+                                                
+                                            } else {
+                                                // There was an error, handle it
+                                                // See https://developers.facebook.com/docs/ios/errors/
+                                            }
+                                        }];
+
 }
 
 #pragma mark Input Validation

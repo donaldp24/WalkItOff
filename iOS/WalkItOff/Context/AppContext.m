@@ -16,6 +16,7 @@ static AppContext *_sharedContext = nil;
 #define kContextIsLoggedInKey           @"isLoggedIn"
 #define kContextStepsTakenKey           @"stepsTaken"
 #define kContextResetDateKey            @"resetDate"
+#define kContextnextPostCaloriesKey     @"nextPostCalories"
 
 // temp values
 #define kContextPercentageCaloriesBurnedKey @"percentageCaloriesBurned"
@@ -57,6 +58,8 @@ static AppContext *_sharedContext = nil;
         self.pedometerStarted = NO;
         self.stepsTaken = 0;
         self.resetDate = [NSDate date];
+        self.nextPostCalories = POST_CALORIES_MILESTONE;
+        
         self.percentageCaloriesBurned = 0;
         self.caloriesToBurn = 0;
         self.totalCalories = 0;
@@ -97,6 +100,12 @@ static AppContext *_sharedContext = nil;
             self.resetDate = [NSDate date];
         else
             self.resetDate = (NSDate *)obj;
+        
+        obj = [dicData objectForKey:kContextnextPostCaloriesKey];
+        if (obj == nil || ![obj isKindOfClass:[NSNumber class]])
+            self.nextPostCalories = POST_CALORIES_MILESTONE;
+        else
+            self.nextPostCalories = [(NSNumber *)obj floatValue];
         
         obj = [dicData objectForKey:kContextPercentageCaloriesBurnedKey];
         if (obj == nil || ![obj isKindOfClass:[NSNumber class]])
@@ -139,6 +148,8 @@ static AppContext *_sharedContext = nil;
      
     // resetDate
     [dicData setObject:self.resetDate forKey:kContextResetDateKey];
+    
+    [dicData setObject:@(self.nextPostCalories) forKey:kContextnextPostCaloriesKey];
     
     [dicData setObject:@(self.percentageCaloriesBurned) forKey:kContextPercentageCaloriesBurnedKey];
     

@@ -7,8 +7,16 @@
 //
 
 #import "TwitterLoginSettingsViewController.h"
+#import "UIManager.h"
+#import "AppSettings.h"
 
-@interface TwitterLoginSettingsViewController ()
+@interface TwitterLoginSettingsViewController () {
+    UIBarButtonItem *_backButton;
+    UIResponder *currentResponder;
+}
+
+@property (nonatomic, strong) IBOutlet UITextField *txtUserName;
+@property (nonatomic, strong) IBOutlet UITextField *txtPwd;
 
 @end
 
@@ -32,6 +40,28 @@
     
     // Uncomment the following line to display an Edit button in the navigation bar for this view controller.
     // self.navigationItem.rightBarButtonItem = self.editButtonItem;
+    
+    
+    //Hide empty separators
+    UIView *v = [[UIView alloc] initWithFrame:CGRectZero];
+    v.backgroundColor = [UIColor clearColor];
+    self.tableView.tableFooterView = v;
+    
+    self.tableView.backgroundColor = [UIManager appBackgroundColor];
+    
+    // back button
+    
+    _backButton = [[UIBarButtonItem alloc] initWithImage:[UIImage imageNamed:@"backicon"] style:UIBarButtonItemStylePlain target:self action:@selector(onBack:)];
+    self.navigationItem.leftBarButtonItem = _backButton;
+    
+    // set values to controls
+    AppSettings *settings = [AppSettings sharedSettings];
+    self.txtUserName.text = settings.twitterUser;
+    self.txtPwd.text = settings.twitterPwd;
+    
+    UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(backgroundTap:)];
+    [self.view addGestureRecognizer:tap];
+
 }
 
 - (void)didReceiveMemoryWarning
@@ -113,5 +143,39 @@
     // Pass the selected object to the new view controller.
 }
 */
+
+- (IBAction)onBack:(id)sender
+{
+    // get values from controls
+    AppSettings *settings = [AppSettings sharedSettings];
+    settings.twitterUser = self.txtUserName.text;
+    settings.twitterPwd = self.txtPwd.text;
+    [settings save];
+    
+    [self.navigationController popViewControllerAnimated:YES];
+}
+
+#pragma mark -
+#pragma mark UITextFieldDelegate Methods
+
+-(BOOL)textFieldShouldReturn:(UITextField *)textField {
+	[textField resignFirstResponder];
+	return YES;
+}
+
+- (void)textFieldDidBeginEditing:(UITextField *)textField {
+    currentResponder = textField;
+}
+
+- (void)textFieldDidEndEditing:(UITextField *)textField {
+    currentResponder = nil;
+}
+
+# pragma mark Gesture selector
+- (void)backgroundTap:(UITapGestureRecognizer *)backgroundTap {
+    if(currentResponder){
+        [currentResponder resignFirstResponder];
+    }
+}
 
 @end

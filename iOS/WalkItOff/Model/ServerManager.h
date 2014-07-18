@@ -9,7 +9,7 @@
 #import <Foundation/Foundation.h>
 #import "ServiceErrorCodes.h"
 
-#define SERVICE_URL @"http://192.168.1.22:8201/service/api_json/"
+#define SERVICE_URL @"http://54.186.94.190/service/api_json/"
 
 // common response keys
 #define kResponseErrorKey   @"error"

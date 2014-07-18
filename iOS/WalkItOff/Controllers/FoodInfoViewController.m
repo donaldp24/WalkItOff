@@ -139,12 +139,12 @@
         } failure: ^(NSString *msg) {
             [[NSOperationQueue mainQueue] addOperationWithBlock:^() {
                 //[AutoMessageBox AutoMsgInView:self withText:@"Failure" withSuccess:NO];
-                HIDE_PROGRESS_WITH_FAILURE(@"Failure");
+                HIDE_PROGRESS_WITH_FAILURE(([NSString stringWithFormat:@"Failure : %@", msg]));
             }];
         }];
         
     } failure:^(NSString *msg) {
-        HIDE_PROGRESS_WITH_FAILURE(@"Failure");
+        HIDE_PROGRESS_WITH_FAILURE(([NSString stringWithFormat:@"Failure : %@", msg]));
     }];
 
 #endif
@@ -175,7 +175,7 @@
     } failure:^(NSString *msg) {
         [[NSOperationQueue mainQueue] addOperationWithBlock:^() {
             //[AutoMessageBox AutoMsgInView:self withText:@"Failure" withSuccess:NO];
-            HIDE_PROGRESS_WITH_FAILURE(@"Failure");
+            HIDE_PROGRESS_WITH_FAILURE(([NSString stringWithFormat:@"Failure : %@", msg]));
         }];
     }];
 #endif

@@ -8,6 +8,9 @@
 
 #import <Foundation/Foundation.h>
 
+#define POST_CALORIES_MILESTONE         500
+
+
 @interface AppContext : NSObject
 
 @property (nonatomic) int useruid;
@@ -17,6 +20,7 @@
 @property (nonatomic, strong) NSDate *lastTimestamp;
 @property (nonatomic, strong) NSDate *resetDate;
 @property (nonatomic) NSInteger stepsTaken;
+@property (nonatomic) CGFloat nextPostCalories;
 
 @property (nonatomic) CGFloat percentageCaloriesBurned;
 @property (nonatomic) CGFloat caloriesToBurn;

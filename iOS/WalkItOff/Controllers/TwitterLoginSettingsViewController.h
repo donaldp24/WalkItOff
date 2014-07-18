@@ -8,6 +8,6 @@
 
 #import <UIKit/UIKit.h>
 
-@interface TwitterLoginSettingsViewController : UITableViewController
+@interface TwitterLoginSettingsViewController : UITableViewController <UITextFieldDelegate>
 
 @end

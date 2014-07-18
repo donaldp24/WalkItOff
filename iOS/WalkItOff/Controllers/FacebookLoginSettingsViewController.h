@@ -8,6 +8,6 @@
 
 #import <UIKit/UIKit.h>
 
-@interface FacebookLoginSettingsViewController : UITableViewController
+@interface FacebookLoginSettingsViewController : UITableViewController <UITextFieldDelegate>
 
 @end
