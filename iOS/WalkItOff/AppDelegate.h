@@ -24,5 +24,6 @@
 @property (strong, nonatomic) UITabBarController *tabBarController;
 @property (strong, nonatomic) Pedometer *pedometer;
 @property (strong, nonatomic) id<PedometerViewerDelegate> pedometerViewerDelegate;
+@property (strong, nonatomic) ACAccountStore *accountStore;
 
 @end

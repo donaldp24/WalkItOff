@@ -14,6 +14,7 @@
 #import "Formulas+walkitoff.h"
 #import "UserContext.h"
 #import "AppSettings.h"
+#import <Social/Social.h>
 
 @implementation AppDelegate
 
@@ -37,6 +38,8 @@
     Pedometer *defaultPedometer = [Pedometer defaultPedometer];
     self.pedometer = defaultPedometer;
     self.pedometer.delegate = self;
+    
+    _accountStore = [[ACAccountStore alloc] init];
     
     // have to start when open main view controller [loginviewcontroller gotoMain] functions,
     // so this is commented
@@ -167,12 +170,12 @@
     {
         context.nextPostCalories = caloriesBurned + POST_CALORIES_MILESTONE;
         
-        
+        NSString *msgToPost = [NSString stringWithFormat:@"You have consumed %d calories", (int)caloriesBurned];
         if ([AppSettings sharedSettings].isPostPer500)
         {
             // post facebook message
             NSDictionary *params = [NSDictionary dictionaryWithObjectsAndKeys:
-                                    [NSString stringWithFormat:@"You have consumed %d calories", (int)caloriesBurned], @"message",
+                                    msgToPost, @"message",
                                     nil
                                     ];
             /* make the API call */
@@ -186,6 +189,11 @@
                                                       ) {
                                       /* handle the result */
                                   }];
+        }
+        
+        if ([AppSettings sharedSettings].isTweetPer500)
+        {
+            [self postMessageToTwitter:msgToPost withUser:[AppSettings sharedSettings].twitterUser withPwd:[AppSettings sharedSettings].twitterPwd];
         }
     }
     
@@ -203,11 +211,12 @@
         
         if (caloriesBurned >= totalCalories)
         {
+            NSString *msgToPost = @"Congratulations! You have consumed all calories";
             if ([AppSettings sharedSettings].isPostWhenAllCalories)
             {
                 // post facebook message
                 NSDictionary *params = [NSDictionary dictionaryWithObjectsAndKeys:
-                                        @"Congratulations! You have consumed all calories", @"message",
+                                        msgToPost, @"message",
                                         nil
                                         ];
                 /* make the API call */
@@ -221,6 +230,11 @@
                                                           ) {
                                           /* handle the result */
                                       }];
+            }
+            
+            if ([AppSettings sharedSettings].isTweetWhenAllCalories)
+            {
+                [self postMessageToTwitter:msgToPost withUser:[AppSettings sharedSettings].twitterUser withPwd:[AppSettings sharedSettings].twitterPwd];
             }
             
             // mark current foods consumed
@@ -317,5 +331,68 @@
     }
 }
 
+- (void)postMessageToTwitter:(NSString *)msg withUser:(NSString *)user withPwd:(NSString *)pwd
+{
+    SLRequestHandler requestHandler =
+    ^(NSData *responseData, NSHTTPURLResponse *urlResponse, NSError *error) {
+        if (responseData) {
+            NSInteger statusCode = urlResponse.statusCode;
+            if (statusCode >= 200 && statusCode < 300) {
+                NSDictionary *postResponseData =
+                [NSJSONSerialization JSONObjectWithData:responseData
+                                                options:NSJSONReadingMutableContainers
+                                                  error:NULL];
+                NSLog(@"[SUCCESS!] Created Tweet with ID: %@", postResponseData[@"id_str"]);
+            }
+            else {
+                NSLog(@"[ERROR] Server responded: status code %d %@", (int)statusCode,
+                      [NSHTTPURLResponse localizedStringForStatusCode:statusCode]);
+            }
+        }
+        else {
+            NSLog(@"[ERROR] An error occurred while posting: %@", [error localizedDescription]);
+        }
+    };
+    
+    ACAccountType *twitterType =
+    [self.accountStore accountTypeWithAccountTypeIdentifier:ACAccountTypeIdentifierTwitter];
+    
+    ACAccountStoreRequestAccessCompletionHandler accountStoreHandler =
+    ^(BOOL granted, NSError *error) {
+        if (granted) {
+            NSArray *accounts = [self.accountStore accountsWithAccountType:twitterType];
+            
+            ACAccount *account = nil;
+            for (ACAccount *item in accounts) {
+                if ([item.identifier isEqualToString:user])
+                {
+                    account = item;
+                }
+            }
+            
+            if (account)
+            {
+                NSURL *url = [NSURL URLWithString:@"https://api.twitter.com/1/direct_messages/new.forma"];
+                NSDictionary *params = @{@"user_id" : [AppSettings sharedSettings].twitterUser,
+                                         @"text" : msg};
+                SLRequest *request = [SLRequest requestForServiceType:SLServiceTypeTwitter
+                                                        requestMethod:SLRequestMethodPOST
+                                                                  URL:url
+                                                           parameters:params];
+                
+                [request setAccount:account];
+                [request performRequestWithHandler:requestHandler];
+            }
+        }
+        else {
+            NSLog(@"[ERROR] An error occurred while asking for user authorization: %@",
+                  [error localizedDescription]);
+        }
+    };
+    
+    [self.accountStore requestAccessToAccountsWithType:twitterType
+                                               options:NULL
+                                            completion:accountStoreHandler];
+}
 
 @end
